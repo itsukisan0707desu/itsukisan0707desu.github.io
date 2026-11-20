@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Sites</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #1c1e21; --sub: #6b7280;
+    --border: #e3e6ea; --accent: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card: #181b21; --text: #e8eaed; --sub: #9aa0aa;
+            --border: #272b33; --accent: #6ea0ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 48px 16px 64px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  .lead { color: var(--sub); margin: 0 0 24px; }
+  input[type=search] {
+    width: 100%; padding: 10px 14px; font-size: 16px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    margin-bottom: 20px;
+  }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .card { display: block; padding: 16px; background: var(--card); border: 1px solid var(--border);
+          border-radius: 12px; text-decoration: none; color: inherit;
+          transition: transform .12s, border-color .12s; }
+  .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card h2 { margin: 0 0 6px; font-size: 17px; color: var(--accent); word-break: break-all; }
+  .card p { margin: 0 0 10px; font-size: 14px; color: var(--sub); min-height: 1.4em; }
+  .meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); }
+  .meta a { color: var(--sub); }
+  .msg { color: var(--sub); text-align: center; padding: 32px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>My Sites</h1>
+  <p class="lead" id="lead">読み込み中…</p>
+  <input type="search" id="q" placeholder="検索">
+  <div class="grid" id="grid"></div>
+  <div class="msg" id="msg"></div>
+</div>
+
+<script>
+// ★ここだけ自分用に変更★
+const USERNAME = "YOUR_GITHUB_USERNAME";
+
+// APIで拾えないもの/手動で追加したいサイト(任意)
+const EXTRA = [
+  // { name: "example", description: "説明", url: "https://example.com/" },
+];
+
+// 表示から除外したいリポジトリ名(任意)
+const HIDE = [];
+
+const grid = document.getElementById("grid");
+const msg = document.getElementById("msg");
+const lead = document.getElementById("lead");
+const q = document.getElementById("q");
+let items = [];
+
+function render() {
+  const kw = q.value.trim().toLowerCase();
+  grid.innerHTML = "";
+  const list = items.filter(i =>
+    (i.name + " " + (i.description || "")).toLowerCase().includes(kw));
+  for (const i of list) {
+    const a = document.createElement("a");
+    a.className = "card"; a.href = i.url;
+    const h = document.createElement("h2"); h.textContent = i.name;
+    const p = document.createElement("p"); p.textContent = i.description || "";
+    const m = document.createElement("div"); m.className = "meta";
+    const d = document.createElement("span");
+    d.textContent = i.updated ? "更新 " + new Date(i.updated).toLocaleDateString("ja-JP") : "";
+    m.appendChild(d);
+    if (i.repo) {
+      const r = document.createElement("a");
+      r.href = i.repo; r.textContent = "repo ↗";
+      r.addEventListener("click", e => e.stopPropagation());
+      m.appendChild(r);
+    }
+    a.append(h, p, m);
+    grid.appendChild(a);
+  }
+  msg.textContent = list.length ? "" : "見つかりませんでした";
+}
+
+async function load() {
+  const key = "sites-cache-" + USERNAME;
+  let repos = null;
+  try {
+    const c = JSON.parse(localStorage.getItem(key) || "null");
+    if (c && Date.now() - c.t < 10 * 60 * 1000) repos = c.data;
+  } catch (e) {}
+  if (!repos) {
+    const res = await fetch(`https://api.github.com/users/${USERNAME}/repos?per_page=100&sort=pushed`);
+    if (!res.ok) throw new Error("GitHub API: " + res.status);
+    repos = await res.json();
+    try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data: repos })); } catch (e) {}
+  }
+  const self = `${USERNAME}.github.io`.toLowerCase();
+  items = repos
+    .filter(r => r.has_pages && !r.fork && !r.archived
+      && r.name.toLowerCase() !== self && !HIDE.includes(r.name))
+    .map(r => ({
+      name: r.name,
+      description: r.description,
+      url: r.homepage || `https://${USERNAME}.github.io/${r.name}/`,
+      repo: r.html_url,
+      updated: r.pushed_at,
+    }));
+  items.push(...EXTRA);
+  lead.textContent = `${items.length} 件のサイト`;
+  render();
+}
+
+q.addEventListener("input", render);
+load().catch(err => {
+  lead.textContent = "";
+  items = [...EXTRA];
+  render();
+  msg.textContent = "リポジトリ一覧を取得できませんでした(" + err.message + ")";
+});
+</script>
+</body>
+</html>
