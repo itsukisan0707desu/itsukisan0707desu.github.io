@@ -46,15 +46,16 @@
 </div>
 
 <script>
-// ★ここだけ自分用に変更★
+// このリポジトリ内の「フォルダ/index.html」を自動で読み取って一覧にします
 const USERNAME = "itsukisan0707desu";
+const REPO = "itsukisan0707desu.github.io";
 
-// APIで拾えないもの/手動で追加したいサイト(任意)
+// 手動で追加したいサイト(任意)
 const EXTRA = [
   // { name: "example", description: "説明", url: "https://example.com/" },
 ];
 
-// 表示から除外したいリポジトリ名(任意)
+// 一覧から隠したいフォルダ名(任意)
 const HIDE = [];
 
 const grid = document.getElementById("grid");
@@ -74,12 +75,11 @@ function render() {
     const h = document.createElement("h2"); h.textContent = i.name;
     const p = document.createElement("p"); p.textContent = i.description || "";
     const m = document.createElement("div"); m.className = "meta";
-    const d = document.createElement("span");
-    d.textContent = i.updated ? "更新 " + new Date(i.updated).toLocaleDateString("ja-JP") : "";
+    const d = document.createElement("span"); d.textContent = i.folder || "";
     m.appendChild(d);
-    if (i.repo) {
+    if (i.source) {
       const r = document.createElement("a");
-      r.href = i.repo; r.textContent = "repo ↗";
+      r.href = i.source; r.textContent = "files ↗";
       r.addEventListener("click", e => e.stopPropagation());
       m.appendChild(r);
     }
@@ -89,30 +89,42 @@ function render() {
   msg.textContent = list.length ? "" : "見つかりませんでした";
 }
 
-async function load() {
-  const key = "sites-cache-" + USERNAME;
-  let repos = null;
+// フォルダ一覧を取得(GitHub API。結果は10分キャッシュ)
+async function listFolders() {
+  const key = "sites-tree-" + REPO;
   try {
     const c = JSON.parse(localStorage.getItem(key) || "null");
-    if (c && Date.now() - c.t < 10 * 60 * 1000) repos = c.data;
+    if (c && Date.now() - c.t < 10 * 60 * 1000) return c.data;
   } catch (e) {}
-  if (!repos) {
-    const res = await fetch(`https://api.github.com/users/${USERNAME}/repos?per_page=100&sort=pushed`);
-    if (!res.ok) throw new Error("GitHub API: " + res.status);
-    repos = await res.json();
-    try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data: repos })); } catch (e) {}
-  }
-  const self = `${USERNAME}.github.io`.toLowerCase();
-  items = repos
-    .filter(r => r.has_pages && !r.fork && !r.archived
-      && r.name.toLowerCase() !== self && !HIDE.includes(r.name))
-    .map(r => ({
-      name: r.name,
-      description: r.description,
-      url: r.homepage || `https://${USERNAME}.github.io/${r.name}/`,
-      repo: r.html_url,
-      updated: r.pushed_at,
-    }));
+  const res = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/git/trees/HEAD?recursive=1`);
+  if (!res.ok) throw new Error("GitHub API: " + res.status);
+  const tree = (await res.json()).tree;
+  const folders = tree
+    .map(t => t.path.match(/^([^\/.][^\/]*)\/index\.html$/i))
+    .filter(Boolean).map(m => m[1])
+    .filter(f => !HIDE.includes(f));
+  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data: folders })); } catch (e) {}
+  return folders;
+}
+
+// 各サイトの <title> と <meta name="description"> を読んで名前・説明にする
+async function readInfo(folder) {
+  const info = { name: folder, description: "", folder: folder + "/",
+    url: `./${folder}/`,
+    source: `https://github.com/${USERNAME}/${REPO}/tree/HEAD/${folder}` };
+  try {
+    const html = await (await fetch(`./${folder}/index.html`)).text();
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    if (doc.title) info.name = doc.title.trim();
+    const meta = doc.querySelector('meta[name="description"]');
+    if (meta) info.description = meta.content.trim();
+  } catch (e) {}
+  return info;
+}
+
+async function load() {
+  const folders = await listFolders();
+  items = await Promise.all(folders.map(readInfo));
   items.push(...EXTRA);
   lead.textContent = `${items.length} 件のサイト`;
   render();
@@ -123,7 +135,7 @@ load().catch(err => {
   lead.textContent = "";
   items = [...EXTRA];
   render();
-  msg.textContent = "リポジトリ一覧を取得できませんでした(" + err.message + ")";
+  msg.textContent = "サイト一覧を取得できませんでした(" + err.message + ")";
 });
 </script>
 </body>
