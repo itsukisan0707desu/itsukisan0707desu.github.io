@@ -89,12 +89,12 @@ function render() {
   msg.textContent = list.length ? "" : "見つかりませんでした";
 }
 
-// フォルダ一覧を取得(GitHub API。結果は10分キャッシュ)
+// フォルダ一覧を取得(GitHub API。結果は2分キャッシュ、0件はキャッシュしない)
 async function listFolders() {
-  const key = "sites-tree-" + REPO;
+  const key = "sites-tree-v2-" + REPO;
   try {
     const c = JSON.parse(localStorage.getItem(key) || "null");
-    if (c && Date.now() - c.t < 10 * 60 * 1000) return c.data;
+    if (c && c.data.length && Date.now() - c.t < 2 * 60 * 1000) return c.data;
   } catch (e) {}
   const res = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/git/trees/HEAD?recursive=1`);
   if (!res.ok) throw new Error("GitHub API: " + res.status);
@@ -103,7 +103,7 @@ async function listFolders() {
     .map(t => t.path.match(/^([^\/.][^\/]*)\/index\.html$/i))
     .filter(Boolean).map(m => m[1])
     .filter(f => !HIDE.includes(f));
-  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data: folders })); } catch (e) {}
+  if (folders.length) { try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data: folders })); } catch (e) {} }
   return folders;
 }
 
