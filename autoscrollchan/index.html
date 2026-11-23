@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Slideshow Maker - 画像からMP4動画</title>
+<meta name="description" content="画像を並べるだけでX(Twitter)対応のMP4スライドショー動画をブラウザ上で作成。アップロード不要・完全ローカル処理。">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Slideshow Maker</h1>
+    <p class="sub">画像からMP4スライドショー動画を作成（X / Twitter 対応 H.264）。画像はサーバーに送信されず、ブラウザ内だけで処理されます。</p>
+  </header>
+
+  <section class="card">
+    <h2>画像リスト</h2>
+    <div id="drop" class="drop" tabindex="0">
+      <strong>ここに画像をドロップ</strong> または <button id="pick" class="btn">画像を選択</button>
+      <input id="file" type="file" accept="image/*" multiple hidden>
+      <div class="hint">クリックで使用ON/OFF ・ ドラッグまたは ◀ ▶ で順番変更 ・ ✕ で削除</div>
+    </div>
+    <div class="row tools">
+      <span id="count" class="muted">0 枚</span>
+      <span class="spacer"></span>
+      <button id="selAll" class="btn sm">全選択</button>
+      <button id="selNone" class="btn sm">全解除</button>
+      <button id="sortName" class="btn sm">名前順</button>
+      <button id="clear" class="btn sm">すべて削除</button>
+    </div>
+    <div id="thumbs" class="thumbs"></div>
+  </section>
+
+  <section class="card">
+    <h2>設定</h2>
+    <div class="grid">
+      <label>動画サイズ
+        <select id="preset">
+          <option value="1080x1920" selected>縦型 1080×1920</option>
+          <option value="1920x1080">Full HD 1920×1080</option>
+          <option value="1280x720">HD 1280×720</option>
+          <option value="1080x1080">正方形 1080×1080</option>
+          <option value="3840x2160">4K 3840×2160</option>
+          <option value="custom">カスタム</option>
+        </select>
+      </label>
+      <label>幅 × 高さ (px)
+        <span class="wh"><input id="vw" type="number" min="64" step="2" value="1080"> × <input id="vh" type="number" min="64" step="2" value="1920"></span>
+      </label>
+      <label>トランジション
+        <select id="trans">
+          <option>クロスフェード</option>
+          <option>フェードアウト→イン</option>
+          <option>左スライド</option>
+          <option>右スライド</option>
+          <option>上スライド</option>
+        </select>
+      </label>
+      <label>出力ファイル名
+        <span class="wh"><input id="fname" type="text" value="slideshow"> .mp4</span>
+      </label>
+    </div>
+    <label class="range">表示時間（1枚あたり）<b id="dispV">3 秒</b>
+      <input id="disp" type="range" min="0.5" max="10" step="0.5" value="3">
+    </label>
+    <label class="range">切替アニメーション時間<b id="fadeV">1 秒</b>
+      <input id="fade" type="range" min="0" max="3" step="0.25" value="1">
+    </label>
+    <div class="muted" id="estimate"></div>
+  </section>
+
+  <section class="card">
+    <button id="go" class="btn accent">▶ 動画を生成する</button>
+    <progress id="bar" value="0" max="100" hidden></progress>
+    <div id="status" class="muted">待機中</div>
+    <div id="result" hidden>
+      <video id="video" controls playsinline></video>
+      <a id="dl" class="btn accent" download>⬇ ダウンロード</a>
+    </div>
+  </section>
+
+  <footer class="muted">H.264 MP4 の書き出しには WebCodecs 対応ブラウザ（Chrome / Edge / Safari 16.4+ など）を推奨します。非対応の場合は録画方式で書き出します（等倍速で時間がかかり、形式がWebMになることがあります）。</footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js" onerror="window.__muxerFail=1"></script>
+<script src="app.js"></script>
+</body>
+</html>
