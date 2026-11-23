@@ -71,6 +71,49 @@
   </section>
 
   <section class="card">
+    <h2 class="tgl"><label><input id="tweetOn" type="checkbox" checked> ツイート文の自動生成を使う</label></h2>
+    <div id="tweetBody">
+    <div class="grid">
+      <label>日付 <input id="tdate" type="date"></label>
+      <label>テンプレート
+        <select id="tplSel"></select>
+      </label>
+    </div>
+    <label class="blk">ひとこと（{ひとこと}）
+      <textarea id="tword" rows="3">こんばんは✨
+そしてお久しぶりです💦
+本日は営業しております😻</textarea>
+    </label>
+    <label class="blk">出勤キャスト（{キャスト}）<span class="muted"> 使用ONの画像のファイル名から自動入力。手で直してもOK</span>
+      <textarea id="tcast" rows="4"></textarea>
+    </label>
+    <div class="grid">
+      <label>敬称 <input id="tsuf" type="text" value="ちゃん"></label>
+      <label>ハッシュタグ（{ハッシュタグ}） <input id="ttags" type="text" value="#男の娘 #ニューハーフ"></label>
+    </div>
+    <label class="blk">テンプレ本文 <span class="muted">使える差し込み：{日付} {ひとこと} {キャスト} {ハッシュタグ}</span>
+      <textarea id="ttpl" rows="7"></textarea>
+    </label>
+    <div class="row tools">
+      <input id="tname" type="text" placeholder="テンプレ名" style="max-width:180px;margin:0">
+      <button id="tSave" class="btn sm">保存（上書き/追加）</button>
+      <button id="tDel" class="btn sm">削除</button>
+      <span class="spacer"></span>
+      <button id="tExport" class="btn sm">CSVに書き出し</button>
+      <button id="tImport" class="btn sm">CSVを読み込み</button>
+      <input id="tcsv" type="file" accept=".csv,text/csv" hidden>
+    </div>
+    <label class="blk">生成されたツイート <span id="tlen" class="muted"></span>
+      <textarea id="tout" rows="10"></textarea>
+    </label>
+    <div class="row">
+      <button id="tCopy" class="btn">コピー</button>
+      <a id="tPost" class="btn" target="_blank" rel="noopener">Xで投稿画面を開く</a>
+    </div>
+    </div>
+  </section>
+
+  <section class="card">
     <button id="go" class="btn accent">▶ 動画を生成する</button>
     <progress id="bar" value="0" max="100" hidden></progress>
     <div id="status" class="muted">待機中</div>

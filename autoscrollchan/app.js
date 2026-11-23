@@ -7,7 +7,7 @@ let uid = 0, dragId = null, busy = false;
 /* ───── 画像リスト ───── */
 function addFiles(files) {
   for (const f of files) {
-    if (!f.type.startsWith('image/')) continue;
+    if (!f.type.startsWith('image/') && !/\.(png|jpe?g|gif|webp|bmp|avif|tiff?)$/i.test(f.name)) continue;
     items.push({ id: ++uid, file: f, url: URL.createObjectURL(f), on: true });
   }
   render();
@@ -25,6 +25,7 @@ function render() {
   });
   $('count').textContent = `${items.length} 枚（使用 ${items.filter(i => i.on).length} 枚）`;
   estimate();
+  if (typeof syncCast === 'function') syncCast();
 }
 function move(i, j) {
   if (j < 0 || j >= items.length) return;
@@ -209,4 +210,112 @@ $('go').onclick = async () => {
   } catch (e) { console.error(e); status('❌ ' + (e.message || e)); }
   finally { bmps.forEach(b => b.close && b.close()); busy = false; $('go').disabled = false; $('go').textContent = '▶ 動画を生成する'; }
 };
+
+/* ───── ツイート自動生成 ───── */
+const DEFAULT_TPL = '{ひとこと}\n\n{日付} 出勤のBAR呼び出し可能キャストさん😊\n\n{キャスト}\n\n{ハッシュタグ}';
+let tpls = [], castDirty = false;
+const LS = 'slideshow_tweet_tpls';
+const trySet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+const tryGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
+
+function castName(f) { return f.name.replace(/\.[^.]+$/, ''); }
+function syncCast() {
+  if (!$('tcast') || castDirty) return;
+  $('tcast').value = items.filter(i => i.on).map(i => castName(i.file)).join('\n');
+  buildTweet();
+}
+function fmtDate(v) { if (!v) return ''; const [, m, d] = v.split('-'); return `${+m}/${+d}`; }
+function weighted(s) { let n = 0; for (const ch of s) { const c = ch.codePointAt(0); n += (c <= 0x10FF || (c >= 0x2000 && c <= 0x200D) || (c >= 0x2010 && c <= 0x201F) || (c >= 0x2032 && c <= 0x2037)) ? 1 : 2; } return n; }
+function buildTweet() {
+  const suf = $('tsuf').value.trim();
+  const cast = $('tcast').value.split('\n').map(s => s.trim()).filter(Boolean).map(n => suf ? `${n}　${suf}` : n).join('\n');
+  const t = $('ttpl').value
+    .replaceAll('{日付}', fmtDate($('tdate').value))
+    .replaceAll('{ひとこと}', $('tword').value.trim())
+    .replaceAll('{キャスト}', cast)
+    .replaceAll('{ハッシュタグ}', $('ttags').value.trim());
+  $('tout').value = t;
+  const w = weighted(t);
+  $('tlen').textContent = `${w} / 280（Xの文字数換算）`; $('tlen').classList.toggle('over140', w > 280);
+  $('tPost').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(t);
+}
+function saveTpls() { trySet(LS, JSON.stringify(tpls)); }
+function fillSel(sel) {
+  $('tplSel').textContent = '';
+  tpls.forEach((t, i) => $('tplSel').add(new Option(t.name, i)));
+  if (sel != null) $('tplSel').value = sel;
+}
+function applyTpl() {
+  const t = tpls[$('tplSel').value]; if (!t) return;
+  $('tname').value = t.name; $('ttpl').value = t.body; $('tsuf').value = t.suffix; $('ttags').value = t.tags;
+  if (t.word != null) $('tword').value = t.word;
+  buildTweet();
+}
+$('tplSel').onchange = applyTpl;
+$('tSave').onclick = () => {
+  const name = $('tname').value.trim() || 'テンプレ';
+  const t = { name, body: $('ttpl').value, suffix: $('tsuf').value, tags: $('ttags').value, word: $('tword').value };
+  let i = tpls.findIndex(x => x.name === name);
+  if (i < 0) { tpls.push(t); i = tpls.length - 1; } else tpls[i] = t;
+  saveTpls(); fillSel(i); status(`テンプレ「${name}」を保存しました`);
+};
+$('tDel').onclick = () => {
+  if (tpls.length <= 1) return alert('最後のテンプレは削除できません。');
+  tpls.splice($('tplSel').value, 1); saveTpls(); fillSel(0); applyTpl();
+};
+/* CSV */
+const csvEsc = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
+function toCsv() {
+  const head = ['テンプレ名', 'テンプレ本文', '敬称', 'ハッシュタグ', 'ひとこと'];
+  return '\ufeff' + [head, ...tpls.map(t => [t.name, t.body, t.suffix, t.tags, t.word])].map(r => r.map(csvEsc).join(',')).join('\r\n') + '\r\n';
+}
+function parseCsv(s) {
+  s = s.replace(/^\ufeff/, ''); const rows = []; let r = [], f = '', q = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) { if (c === '"') { if (s[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { r.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && s[i + 1] === '\n') i++; r.push(f); f = ''; if (r.some(x => x !== '')) rows.push(r); r = []; }
+    else f += c;
+  }
+  if (f !== '' || r.length) { r.push(f); rows.push(r); }
+  return rows;
+}
+$('tExport').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([toCsv()], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'tweet_templates.csv'; a.click();
+};
+$('tImport').onclick = () => $('tcsv').click();
+$('tcsv').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const buf = await f.arrayBuffer(); let txt = new TextDecoder('utf-8').decode(buf);
+    if (txt.includes('\ufffd')) txt = new TextDecoder('shift_jis').decode(buf); // Excel(日本語)保存対策
+    const rows = parseCsv(txt).slice(1).filter(r => r.length >= 2);
+    if (!rows.length) throw new Error('テンプレが見つかりません');
+    tpls = rows.map(r => ({ name: r[0] || 'テンプレ', body: r[1] || '', suffix: r[2] ?? 'ちゃん', tags: r[3] ?? '', word: r[4] ?? '' }));
+    saveTpls(); fillSel(0); applyTpl(); status(`CSVから ${tpls.length} 件のテンプレを読み込みました`);
+  } catch (err) { alert('CSVを読み込めませんでした：' + err.message); }
+};
+$('tCopy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('tout').value); status('ツイート文をコピーしました'); }
+  catch { $('tout').select(); document.execCommand('copy'); status('ツイート文をコピーしました'); }
+};
+function initTweet() {
+  const d = new Date(); $('tdate').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  try { tpls = JSON.parse(tryGet(LS) || '[]'); } catch { tpls = []; }
+  if (!tpls.length) tpls = [{ name: '出勤告知', body: DEFAULT_TPL, suffix: 'ちゃん', tags: '#男の娘 #ニューハーフ', word: $('tword').value }];
+  fillSel(0); applyTpl(); castDirty = false; syncCast();
+  $('tcast').addEventListener('input', () => { castDirty = true; buildTweet(); });
+  ['tdate', 'tword', 'tsuf', 'ttags', 'ttpl'].forEach(id => $(id).addEventListener('input', buildTweet));
+}
 render();
+initTweet();
+(() => {
+  const cb = $('tweetOn'), body = $('tweetBody');
+  const apply = () => { body.hidden = !cb.checked; try { localStorage.setItem('slideshow_tweet_on', cb.checked ? '1' : '0'); } catch {} };
+  try { if (localStorage.getItem('slideshow_tweet_on') === '0') cb.checked = false; } catch {}
+  cb.onchange = apply; apply();
+})();
