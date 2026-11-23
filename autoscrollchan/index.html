@@ -3,129 +3,157 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Slideshow Maker - 画像からMP4動画</title>
-<meta name="description" content="画像を並べるだけでX(Twitter)対応のMP4スライドショー動画をブラウザ上で作成。アップロード不要・完全ローカル処理。">
+<title>スライドショー動画＆出勤ツイート作成</title>
+<meta name="description" content="画像からX(Twitter)対応のMP4スライドショー動画と、出勤ツイート文をブラウザ上で作成。画像はアップロードされません。">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<main class="wrap">
-  <header>
-    <h1>Slideshow Maker</h1>
-    <p class="sub">画像からMP4スライドショー動画を作成（X / Twitter 対応 H.264）。画像はサーバーに送信されず、ブラウザ内だけで処理されます。</p>
-  </header>
+<header>
+  <span>スライドショー動画＆出勤ツイート作成</span>
+  <span id="saveState"></span>
+</header>
 
-  <section class="card">
-    <h2>画像リスト</h2>
-    <div id="drop" class="drop" tabindex="0">
-      <strong>ここに画像をドロップ</strong> または <button id="pick" class="btn">画像を選択</button>
-      <input id="file" type="file" accept="image/*" multiple hidden>
-      <div class="hint">クリックで使用ON/OFF ・ ドラッグまたは ◀ ▶ で順番変更 ・ ✕ で削除</div>
-    </div>
-    <div class="row tools">
-      <span id="count" class="muted">0 枚</span>
-      <span class="spacer"></span>
-      <button id="selAll" class="btn sm">全選択</button>
-      <button id="selNone" class="btn sm">全解除</button>
-      <button id="sortName" class="btn sm">名前順</button>
-      <button id="clear" class="btn sm">すべて削除</button>
-    </div>
-    <div id="thumbs" class="thumbs"></div>
-  </section>
+<h1 class="part">🎬 動画をつくる</h1>
+<main>
+  <div class="col">
+    <section>
+      <h2>① 画像を入れる（動画になる順番）</h2>
+      <div id="drop" class="drop" tabindex="0">
+        <strong>ここに画像（またはZIP）をドロップ</strong> または <button id="pick" class="primary sm2">画像 / ZIPを選択</button>
+        <input id="file" type="file" accept="image/*,.zip,application/zip" multiple hidden>
+        <label class="syncl" style="margin:8px 0 0"><input type="checkbox" id="resetOnLoad" checked> 読み込むたびに今の画像をリセットする（手動で追加したキャストは残ります）</label>
+        <p class="hint" style="margin:6px 0 0">クリックで使用ON/OFF ／ ドラッグか ◀ ▶ で順番変更 ／ ✕ で削除</p>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <span id="count" class="hint" style="margin:0"></span><span class="spacer"></span>
+        <button id="selAll" class="sm">全選択</button>
+        <button id="selNone" class="sm">全解除</button>
+        <button id="sortName" class="sm">名前順</button>
+        <button id="clear" class="sm del">すべて削除</button>
+      </div>
+      <div id="thumbs" class="thumbs"></div>
+    </section>
 
-  <section class="card">
-    <h2>設定</h2>
-    <div class="grid">
-      <label>動画サイズ
-        <select id="preset">
-          <option value="1080x1920" selected>縦型 1080×1920</option>
-          <option value="1920x1080">Full HD 1920×1080</option>
-          <option value="1280x720">HD 1280×720</option>
-          <option value="1080x1080">正方形 1080×1080</option>
-          <option value="3840x2160">4K 3840×2160</option>
-          <option value="custom">カスタム</option>
-        </select>
-      </label>
-      <label>幅 × 高さ (px)
-        <span class="wh"><input id="vw" type="number" min="64" step="2" value="1080"> × <input id="vh" type="number" min="64" step="2" value="1920"></span>
-      </label>
-      <label>トランジション
-        <select id="trans">
-          <option>クロスフェード</option>
-          <option>フェードアウト→イン</option>
-          <option>左スライド</option>
-          <option>右スライド</option>
-          <option>上スライド</option>
-        </select>
-      </label>
-      <label>出力ファイル名
-        <span class="wh"><input id="fname" type="text" value="slideshow"> .mp4</span>
-      </label>
-    </div>
-    <label class="range">表示時間（1枚あたり）<b id="dispV">3 秒</b>
-      <input id="disp" type="range" min="0.5" max="10" step="0.5" value="3">
-    </label>
-    <label class="range">切替アニメーション時間<b id="fadeV">1 秒</b>
-      <input id="fade" type="range" min="0" max="3" step="0.25" value="1">
-    </label>
-    <div class="muted" id="estimate"></div>
-  </section>
+    <section>
+      <h2>② 動画の設定</h2>
+      <div class="grid">
+        <label>動画サイズ
+          <select id="preset">
+            <option value="1080x1920" selected>縦型 1080×1920</option>
+            <option value="1920x1080">Full HD 1920×1080</option>
+            <option value="1280x720">HD 1280×720</option>
+            <option value="1080x1080">正方形 1080×1080</option>
+            <option value="3840x2160">4K 3840×2160</option>
+            <option value="custom">カスタム</option>
+          </select>
+        </label>
+        <label>幅 × 高さ (px)
+          <span class="wh"><input id="vw" type="number" min="64" step="2" value="1080"> × <input id="vh" type="number" min="64" step="2" value="1920"></span>
+        </label>
+        <label>トランジション
+          <select id="trans">
+            <option>クロスフェード</option><option>フェードアウト→イン</option>
+            <option>左スライド</option><option>右スライド</option><option>上スライド</option>
+          </select>
+        </label>
+        <label>出力ファイル名
+          <span class="wh"><input id="fname" type="text" value="slideshow"> .mp4</span>
+        </label>
+      </div>
+      <label class="range">表示時間（1枚あたり）<b id="dispV">3 秒</b>
+        <input id="disp" type="range" min="0.5" max="10" step="0.5" value="3"></label>
+      <label class="range">切替アニメーション時間<b id="fadeV">1 秒</b>
+        <input id="fade" type="range" min="0" max="3" step="0.25" value="1"></label>
+      <p class="hint" id="estimate"></p>
+    </section>
+  </div>
 
-  <section class="card">
-    <h2 class="tgl"><label><input id="tweetOn" type="checkbox" checked> ツイート文の自動生成を使う</label></h2>
-    <div id="tweetBody">
-    <div class="grid">
-      <label>日付 <input id="tdate" type="date"></label>
-      <label>テンプレート
-        <select id="tplSel"></select>
-      </label>
-    </div>
-    <label class="blk">ひとこと（{ひとこと}）
-      <textarea id="tword" rows="3">こんばんは✨
-そしてお久しぶりです💦
-本日は営業しております😻</textarea>
-    </label>
-    <label class="blk">出勤キャスト（{キャスト}）<span class="muted"> 使用ONの画像のファイル名から自動入力。手で直してもOK</span>
-      <textarea id="tcast" rows="4"></textarea>
-    </label>
-    <div class="grid">
-      <label>敬称 <input id="tsuf" type="text" value="ちゃん"></label>
-      <label>ハッシュタグ（{ハッシュタグ}） <input id="ttags" type="text" value="#男の娘 #ニューハーフ"></label>
-    </div>
-    <label class="blk">テンプレ本文 <span class="muted">使える差し込み：{日付} {ひとこと} {キャスト} {ハッシュタグ}</span>
-      <textarea id="ttpl" rows="7"></textarea>
-    </label>
-    <div class="row tools">
-      <input id="tname" type="text" placeholder="テンプレ名" style="max-width:180px;margin:0">
-      <button id="tSave" class="btn sm">保存（上書き/追加）</button>
-      <button id="tDel" class="btn sm">削除</button>
-      <span class="spacer"></span>
-      <button id="tExport" class="btn sm">CSVに書き出し</button>
-      <button id="tImport" class="btn sm">CSVを読み込み</button>
-      <input id="tcsv" type="file" accept=".csv,text/csv" hidden>
-    </div>
-    <label class="blk">生成されたツイート <span id="tlen" class="muted"></span>
-      <textarea id="tout" rows="10"></textarea>
-    </label>
-    <div class="row">
-      <button id="tCopy" class="btn">コピー</button>
-      <a id="tPost" class="btn" target="_blank" rel="noopener">Xで投稿画面を開く</a>
-    </div>
-    </div>
-  </section>
-
-  <section class="card">
-    <button id="go" class="btn accent">▶ 動画を生成する</button>
-    <progress id="bar" value="0" max="100" hidden></progress>
-    <div id="status" class="muted">待機中</div>
-    <div id="result" hidden>
-      <video id="video" controls playsinline></video>
-      <a id="dl" class="btn accent" download>⬇ ダウンロード</a>
-    </div>
-  </section>
-
-  <footer class="muted">H.264 MP4 の書き出しには WebCodecs 対応ブラウザ（Chrome / Edge / Safari 16.4+ など）を推奨します。非対応の場合は録画方式で書き出します（等倍速で時間がかかり、形式がWebMになることがあります）。</footer>
+  <div class="col">
+    <section class="sticky">
+      <h2>③ 動画を生成</h2>
+      <button id="go" class="primary big">▶ 動画を生成する</button>
+      <progress id="bar" value="0" max="100" hidden></progress>
+      <div id="status" class="hint">待機中</div>
+      <div id="result" hidden>
+        <video id="video" controls playsinline></video>
+        <a id="dl" class="primary big dl" download>⬇ ダウンロード</a>
+      </div>
+      <p class="hint">H.264 MP4 の書き出しには WebCodecs 対応ブラウザ（Chrome / Edge / Safari 16.4+ など）を推奨します。非対応の場合は録画方式（動画の長さ分の時間がかかり、WebMになることがあります）で書き出します。</p>
+    </section>
+  </div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js" onerror="window.__muxerFail=1"></script>
+
+<h1 class="part">📝 出勤ツイートをつくる
+  <label class="tgl"><input id="tweetOn" type="checkbox" checked> 使う</label></h1>
+<main id="tweetMain">
+  <div class="col">
+    <section>
+      <h2>④ 出勤キャスト（チェックで表示 / 非表示）</h2>
+      <label class="syncl"><input type="checkbox" id="sync" checked> 上の画像と連動する（ファイル名＝キャスト名。画像のON/OFFや順番がそのまま反映されます）</label>
+      <div class="row">
+        <button id="allOn">全員ON</button><button id="allOff">全員OFF</button>
+        <span class="hint" id="castSummary" style="margin:0"></span>
+      </div>
+      <div id="castList"></div>
+      <div class="row" style="margin-top:10px"><button id="addCast" class="primary">＋ キャストを追加</button></div>
+      <p class="hint">左から：出勤チェック / 先頭の絵文字 / 名前 / Xアカウント（任意。@は付けても付けなくてもOK）</p>
+
+      <h2 style="margin-top:18px">CSVで保存 / 読み込み（店名・文章・キャスト全部）</h2>
+      <div class="row">
+        <select id="csvMode">
+          <option value="replace">今のキャストを置き換える</option>
+          <option value="append">今のキャストの後ろに追加する</option>
+        </select>
+        <button id="csvImport">CSVを読み込む</button>
+        <button id="csvExport" class="primary sm2">CSVに保存</button>
+        <input type="file" id="csvFile" accept=".csv,.txt,text/csv" hidden>
+      </div>
+      <p class="hint">「CSVに保存」で店名・各文章・ハッシュタグ・キャスト（チェック状態込み）を <code>shukkin_settings.csv</code> にまとめて保存します。前に作った出勤ツイート生成ツールのCSVもそのまま読み込めます（UTF-8 / Shift_JIS 対応）。</p>
+    </section>
+
+    <section>
+      <h2>⑤ 日付</h2>
+      <div class="row">
+        <label><input type="checkbox" id="autoDate" checked> 今日の日付を自動で使う</label>
+        <input type="date" id="dateInput" disabled>
+      </div>
+      <p class="hint" id="dateHint"></p>
+    </section>
+
+    <section>
+      <h2>⑥ 文章（おまかせ自動 or 手で編集）</h2>
+      <div class="row">
+        <button id="dice" class="primary sm2">🎲 文章をおまかせで考える</button>
+        <label style="font-size:13px"><input type="checkbox" id="autoWords" checked> 開くたびに自動で考える</label>
+      </div>
+      <div class="row">
+        <label for="shopName" class="b">店名</label>
+        <input type="text" id="shopName" style="flex:1;min-width:160px" placeholder="例：男の娘カフェBAR 梅田店">
+        <label for="suffix" class="b">敬称</label>
+        <input type="text" id="suffix" style="width:80px" placeholder="ちゃん">
+      </div>
+      <p class="hint">使える置き換え：<code>{店名}</code> <code>{日付}</code>（例 11/20(金)） <code>{人数}</code>（出勤人数）。チェックを外すとその行ごと消えます。</p>
+      <div id="blocks"></div>
+      <div class="row"><button id="resetBlocks">文章を初期状態に戻す</button></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="sticky">
+      <h2>⑦ 生成結果</h2>
+      <textarea id="out"></textarea>
+      <div class="count" id="tcount"></div>
+      <div class="row">
+        <button id="copy" class="primary">コピー</button>
+        <button id="post">Xで投稿画面を開く</button>
+      </div>
+      <p class="hint">結果欄は手で直接編集もできます（キャスト・日付・文章を変えると再生成されます）。</p>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
